@@ -151,22 +151,39 @@ def create_movie(movie: Movie) -> dict:
 # Método PUT para modificar
 @app.put('/movies/{id}', tags=['movies'], response_model=dict, status_code=200)
 def update_movie(id: int, movie: Movie) -> dict:
-    for item in movies:
+    db = Session()
+    result = db.query(MovieModel).filter(MovieModel.id == id).first()
+    if not result:
+        return JSONResponse(status_code=404, content={"message":f"No se encontró la película con id:  {id}"})
+    result.title = movie.title
+    result.overview = movie.overview
+    result.year = movie.year
+    result.rating = movie.rating
+    result.category = movie.category
+
+    db.commit()
+    """ for item in movies:
         if item["id"] == id:
             item['title'] = movie.title
             item['overview'] = movie.overview
             item['year'] = movie.year
             item['rating'] = movie.rating
-            item['category'] = movie.category
-            return JSONResponse(status_code=200, content={"message": f"Se modificó correctamente la película con id:  {id}"})
+            item['category'] = movie.category """
+    return JSONResponse(status_code=200, content={"message": f"Se modificó correctamente la película con id:  {id}"})
 
 
 
 # Método DELETE
 @app.delete('/movies/{id}', tags=['movies'], response_model=dict, status_code=200)
 def delete(id: int) -> dict:
-    for item in movies:
+    db = Session()
+    result = db.query(MovieModel).filter(MovieModel.id == id).first()
+    if not result:
+        return JSONResponse(status_code=404, content={"message":f"No se encontró la película con id:  {id}"})
+    db.delete(result)
+    db.commit()
+    """ for item in movies:
         if item["id"] == id:
-            movies.remove(item)
+            movies.remove(item) """
     return JSONResponse(status_code=200, content={"message":"Se eliminó la película"})
     
