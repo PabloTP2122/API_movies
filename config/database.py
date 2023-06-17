@@ -16,7 +16,7 @@ database_url = f"sqlite:///{os.path.join(base_dir, sqlite_file_name)}"
 engine = create_engine(database_url, echo=True)
 
 # Sesión para conectarme a base de datos
-session = sessionmaker(bind=engine)
+Session = sessionmaker(bind=engine)
 
 # Instancia
 Base = declarative_base()

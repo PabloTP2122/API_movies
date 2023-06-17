@@ -5,13 +5,20 @@ from fastapi.security.http import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 # Ayuda a colocar valores opcionales
 from typing import Optional, List
-
+# Para manejo de excepciones y códigos de estado
 from fastapi.exceptions import HTTPException
 from starlette.requests import Request
+# Base de datos
+from config.database import Session, engine, Base
+from models.movie import Movie as MovieModel
+from fastapi.encoders import jsonable_encoder
 
-
+# Seguridad
 from jwt_manager import create_token, validate_token
 from fastapi.security import HTTPBearer
+
+#
+Base.metadata.create_all(bind=engine)
 
 # Instancia de fast api
 app = FastAPI()
@@ -37,7 +44,7 @@ class User(BaseModel):
 # La clase hereda de BaseModel para crear un esquema
 class Movie(BaseModel):
     id: Optional[int] = None
-    title: str = Field(min_length=6, max_length=15)
+    title: str = Field(min_length=6, max_length=55)
     overview: str = Field(min_length=16, max_length=55)
     year: int = Field(le=2022)
     rating: float = Field(ge=1, le=10.0)
@@ -90,6 +97,7 @@ def not_founded():
 def message():
     return HTMLResponse('<h1>Hello my friends!</h1>')
 
+
 @app.post('/login', tags=['Auth'])
 def login(user: User):
     if user.email == 'admin@gmail.com' and user.password == "admin":
@@ -97,31 +105,47 @@ def login(user: User):
     return JSONResponse(status_code=200, content=token)
 
 
-
 @app.get('/movies', tags=['movies'], response_model=List[Movie], status_code=200, dependencies=[Depends(JWTBarer())])
 def get_movies() -> List[Movie]:
-    return JSONResponse(status_code=200,content=movies)
+    db = Session()
+    result = db.query(MovieModel).all()
+    return JSONResponse(status_code=200,content=jsonable_encoder(result))
 
 
 #Parametros de la ruta
 @app.get('/movies/{id}', tags=['movies'], response_model=Movie, status_code=200)
 def get_movie(id: int = Path(ge=1, le=2000)) -> Movie:
+    db = Session()
+    result = db.query(MovieModel).filter(MovieModel.id == id).first()
+    if not result:
+        return JSONResponse(status_code=404, content={"message":"No se encontró"})
     #Filtrado
-    for item in movies:
+    """ for item in movies:
         if item["id"] == id:
-            return JSONResponse(status_code=200, content=item)
-    return JSONResponse(status_code=404,content=[])
+            return JSONResponse(status_code=200, content=item) """
+    return JSONResponse(status_code=200,content=jsonable_encoder(result))
 
 #Parametros query
 @app.get('/movies/', tags=['movies'], response_model=List[Movie], status_code=200)
 def get_movies_by_category(category: str = Query(min_length=5, max_length=15)) -> List[Movie]:
-    return [movie for movie in movies if movie['category'] == category]
+    db = Session()
+    result = db.query(MovieModel).filter(MovieModel.category == category).all()
+    if not result:
+        return JSONResponse(status_code=404, content={"message":"No encontrado"})
+    return JSONResponse(status_code=200, content=jsonable_encoder(result))
+    #return [movie for movie in movies if movie['category'] == category]
 
 
 # Método POST para crear
 @app.post('/movies', tags=['movies'], response_model=dict, status_code=201)
 def create_movie(movie: Movie) -> dict:
-    movies.append(movie)
+    # Primero hay que crear sesión para conectarse a la base de datos
+    db = Session()
+    # creada una película
+    new_movie = MovieModel(**movie.dict())
+    db.add(new_movie)
+    db.commit()
+    ##movies.append(movie)
     return JSONResponse(status_code=201, content={"message": "Se ha reguistrado correctamente la película"}) 
 
 # Método PUT para modificar
