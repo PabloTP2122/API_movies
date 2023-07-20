@@ -1,6 +1,6 @@
 from fastapi import Depends, FastAPI, Body, Path, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.security.http import HTTPAuthorizationCredentials 
+from fastapi.security.http import HTTPAuthorizationCredentials
 # Para crear esquemas
 from pydantic import BaseModel, Field
 # Ayuda a colocar valores opcionales
@@ -15,11 +15,14 @@ from fastapi.encoders import jsonable_encoder
 
 # Seguridad
 from jwt_manager import create_token, validate_token
-from fastapi.security import HTTPBearer
 
-# 
+# Middlewares
+# Manejo de errores
+from middlewares.error_handler import ErrorHandler
+# Manejo de JWT
+from middlewares.jwt_bearer import JWTBarer
 
-#
+
 Base.metadata.create_all(bind=engine)
 
 # Instancia de fast api
@@ -29,21 +32,20 @@ app = FastAPI()
 app.title = 'Movies API'
 app.version = '0.0.1'
 
-# Clase para procesar la petición del usuario y devolver las credenciales de autorización
-# super da acceso a la clase de la que hereda
-class JWTBarer(HTTPBearer):
-    async def __call__(self, request: Request):
-        auth =  await super().__call__(request)
-        data = validate_token(auth.credentials)
-        if data['email'] != 'admin@gmail.com':
-            raise HTTPException(status_code=403, detail='Credenciales no válidas')
+# Se añade middleware
+app.add_middleware(ErrorHandler)
+
 
 # Nuevo modelo para la información del usuario
+
+
 class User(BaseModel):
     email: str
     password: str
 
 # La clase hereda de BaseModel para crear un esquema
+
+
 class Movie(BaseModel):
     id: Optional[int] = None
     title: str = Field(min_length=6, max_length=55)
@@ -67,7 +69,6 @@ class Movie(BaseModel):
         }
 
 
-
 movies = [
     {
         "id": 1,
@@ -87,15 +88,18 @@ movies = [
     }
 ]
 
+
 @app.exception_handler(404)
 async def not_found_exception(request: Request, exc: HTTPException):
     return RedirectResponse('/404')
+
 
 @app.get('/404', tags=['404'])
 def not_founded():
     return HTMLResponse('<h1>Error: 404</h1>')
 
-@app.get('/', tags=['home'],response_class=HTMLResponse)
+
+@app.get('/', tags=['home'], response_class=HTMLResponse)
 def message():
     return HTMLResponse('<h1>Hello my friends!</h1>')
 
@@ -111,31 +115,33 @@ def login(user: User):
 def get_movies() -> List[Movie]:
     db = Session()
     result = db.query(MovieModel).all()
-    return JSONResponse(status_code=200,content=jsonable_encoder(result))
+    return JSONResponse(status_code=200, content=jsonable_encoder(result))
 
 
-#Parametros de la ruta
+# Parametros de la ruta
 @app.get('/movies/{id}', tags=['movies'], response_model=Movie, status_code=200)
 def get_movie(id: int = Path(ge=1, le=2000)) -> Movie:
     db = Session()
     result = db.query(MovieModel).filter(MovieModel.id == id).first()
     if not result:
-        return JSONResponse(status_code=404, content={"message":"No se encontró"})
-    #Filtrado
+        return JSONResponse(status_code=404, content={"message": "No se encontró"})
+    # Filtrado
     """ for item in movies:
         if item["id"] == id:
             return JSONResponse(status_code=200, content=item) """
-    return JSONResponse(status_code=200,content=jsonable_encoder(result))
+    return JSONResponse(status_code=200, content=jsonable_encoder(result))
 
-#Parametros query
+# Parametros query
+
+
 @app.get('/movies/', tags=['movies'], response_model=List[Movie], status_code=200)
 def get_movies_by_category(category: str = Query(min_length=5, max_length=15)) -> List[Movie]:
     db = Session()
     result = db.query(MovieModel).filter(MovieModel.category == category).all()
     if not result:
-        return JSONResponse(status_code=404, content={"message":"No encontrado"})
+        return JSONResponse(status_code=404, content={"message": "No encontrado"})
     return JSONResponse(status_code=200, content=jsonable_encoder(result))
-    #return [movie for movie in movies if movie['category'] == category]
+    # return [movie for movie in movies if movie['category'] == category]
 
 
 # Método POST para crear
@@ -147,16 +153,18 @@ def create_movie(movie: Movie) -> dict:
     new_movie = MovieModel(**movie.dict())
     db.add(new_movie)
     db.commit()
-    ##movies.append(movie)
-    return JSONResponse(status_code=201, content={"message": "Se ha reguistrado correctamente la película"}) 
+    # movies.append(movie)
+    return JSONResponse(status_code=201, content={"message": "Se ha reguistrado correctamente la película"})
 
 # Método PUT para modificar
+
+
 @app.put('/movies/{id}', tags=['movies'], response_model=dict, status_code=200)
 def update_movie(id: int, movie: Movie) -> dict:
     db = Session()
     result = db.query(MovieModel).filter(MovieModel.id == id).first()
     if not result:
-        return JSONResponse(status_code=404, content={"message":f"No se encontró la película con id:  {id}"})
+        return JSONResponse(status_code=404, content={"message": f"No se encontró la película con id:  {id}"})
     result.title = movie.title
     result.overview = movie.overview
     result.year = movie.year
@@ -174,18 +182,16 @@ def update_movie(id: int, movie: Movie) -> dict:
     return JSONResponse(status_code=200, content={"message": f"Se modificó correctamente la película con id:  {id}"})
 
 
-
 # Método DELETE
 @app.delete('/movies/{id}', tags=['movies'], response_model=dict, status_code=200)
 def delete(id: int) -> dict:
     db = Session()
     result = db.query(MovieModel).filter(MovieModel.id == id).first()
     if not result:
-        return JSONResponse(status_code=404, content={"message":f"No se encontró la película con id:  {id}"})
+        return JSONResponse(status_code=404, content={"message": f"No se encontró la película con id:  {id}"})
     db.delete(result)
     db.commit()
     """ for item in movies:
         if item["id"] == id:
             movies.remove(item) """
-    return JSONResponse(status_code=200, content={"message":"Se eliminó la película"})
-    
+    return JSONResponse(status_code=200, content={"message": "Se eliminó la película"})
