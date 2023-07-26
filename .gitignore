@@ -180,6 +180,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+**fastApi
 #Base de datos
 database.sqlite
 # Spyder project settings

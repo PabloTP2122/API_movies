@@ -1,20 +1,14 @@
 from fastapi import APIRouter
-# Para crear esquemas
-from pydantic import BaseModel
 
 from fastapi.responses import JSONResponse
 
+# Esquema de usuario
+from schemas.user import User
+
 # Seguridad
-from jwt_manager import create_token
+from utils.jwt_manager import create_token
 
 users_router = APIRouter()
-
-# Nuevo modelo para la información del usuario
-
-
-class User(BaseModel):
-    email: str
-    password: str
 
 
 @users_router.post('/login', tags=['Auth'])

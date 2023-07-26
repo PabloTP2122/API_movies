@@ -8,8 +8,7 @@ from starlette.requests import Request
 from config.database import engine, Base
 
 
-# Middlewares
-# Manejo de errores
+# Middleware de Manejo de errores
 from middlewares.error_handler import ErrorHandler
 
 # Routers
